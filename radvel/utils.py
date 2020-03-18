@@ -134,6 +134,20 @@ Converting 'logjit' to 'jit' for you now.
         likes[inst].params['gamma_'+inst] = iparams['gamma_'+inst]
         likes[inst].params['jit_'+inst] = iparams['jit_'+inst]
 
+    # initialize likelihood objects for eclipses and transits
+    if hasattr(P, 'ecldata'):
+        mod = radvel.EclModel(params)
+        liketype = radvel.likelihood.EclLikelihood
+        likes['ecl'] = liketype(
+            mod, [P.ecldata.t], [P.ecldata.terr], suffix='_ecl')
+        likes['ecl'].params['jit_ecl'] = iparams['jit_ecl']
+    if hasattr(P, 'trdata'):
+        mod = radvel.TrModel(params)
+        liketype = radvel.likelihood.TrLikelihood
+        likes['tr'] = liketype(
+            mod, [P.trdata.t], [P.trdata.terr], suffix='_tr')
+        likes['tr'].params['jit_tr'] = iparams['jit_tr']
+
     like = radvel.likelihood.CompositeLikelihood(list(likes.values()))
 
     # Initialize Posterior object

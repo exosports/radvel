@@ -190,7 +190,8 @@ class CompositeLikelihood(Likelihood):
             like = like_list[i]
 
             self.x = np.append(self.x, like.x)
-            self.y = np.append(self.y, like.y - like.params[like.gamma_param].value)
+            self.y = np.append(self.y, like.y -
+                               like.params[like.gamma_param].value)
             self.yerr = np.append(self.yerr, like.yerr)
             self.telvec = np.append(self.telvec, like.telvec)
             self.extra_params = np.append(self.extra_params, like.extra_params)
@@ -202,8 +203,8 @@ class CompositeLikelihood(Likelihood):
             except AttributeError:
                 self.uparams = None
 
-            assert like.model is like0.model, \
-                "Likelihoods must use the same model"
+            #assert like.model is like0.model, \
+            #    "Likelihoods must use the same model"
 
             for k in like.params:
                 if k in params:
@@ -343,6 +344,200 @@ class RVLikelihood(Likelihood):
 
         return loglike
 
+class EclLikelihood(Likelihood):
+    """Eclipse Likelihood
+
+    The Likelihood object for a set of eclipse timings.
+
+    Args:
+        model (radvel.model.RVModel): RV model object
+        t (array): array of eclipse times
+        errt (array): array of eclipse time uncertainties
+        errvel (array): array of velocity uncertainties
+        suffix (string): suffix to identify this Likelihood object
+           useful when constructing a `CompositeLikelihood` object.
+
+    """
+    def __init__(self, model, t, errt, suffix='', decorr_vars=[],
+                 decorr_vectors=[], **kwargs):
+        self.jit_param = 'jit'+suffix
+        self.extra_params = [self.jit_param]
+        self.gamma_param = 'gamma'+suffix
+
+        if suffix.startswith('_'):
+            self.suffix = suffix[1:]
+        else:
+            self.suffix = suffix
+
+        self.telvec = np.array([self.suffix]*len(t))
+
+        self.decorr_params = []
+        self.decorr_vectors = decorr_vectors
+        if len(decorr_vars) > 0:
+            self.decorr_params += ['c1_'+d+suffix for d in decorr_vars]
+
+        # dummy values passed to Likelihood.__init__() since eclipse
+        # timings are just a time and uncertainty on that time
+        dummy = np.zeros(len(t))
+
+        super(EclLikelihood, self).__init__(
+            model, dummy, t, errt, extra_params=self.extra_params,
+            decorr_params=self.decorr_params,
+            decorr_vectors=self.decorr_vectors
+            )
+
+    def residuals(self):
+        """Residuals
+
+        Data minus model
+        """
+        mod = self.model()
+
+        res = []
+        for i in range(self.model.num_planets):
+            for ecl in self.y[i]:
+                diff = ecl - mod[i]
+                idx  = np.abs(diff).argmin()
+                res.append(diff[idx])
+        res = np.array(res)
+
+        if len(self.decorr_params) > 0:
+            for parname in self.decorr_params:
+                var = parname.split('_')[1]
+                pars = []
+                for par in self.decorr_params:
+                    if var in par:
+                        pars.append(self.params[par].value)
+                pars.append(0.0)
+                if np.isfinite(self.decorr_vectors[var]).all():
+                    vec = self.decorr_vectors[var] - np.mean(self.decorr_vectors[var])
+                    p = np.poly1d(pars)
+                    res -= p(vec)
+        return res
+
+    def errorbars(self):
+        """
+        Return uncertainties with jitter added
+        in quadrature.
+
+        Returns:
+            array: uncertainties
+
+        """
+        return np.sqrt(self.yerr**2 + self.params[self.jit_param].value**2)
+
+    def logprob(self):
+        """
+        Return log-likelihood given the data and model.
+        Priors are not applied here.
+
+        Returns:
+            float: Natural log of likelihood
+        """
+
+        sigma_jit = self.params[self.jit_param].value
+        residuals = self.residuals()
+        loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
+
+        return loglike
+
+class TrLikelihood(Likelihood):
+    """Transit Likelihood
+
+    The Likelihood object for a set of transit timings.
+
+    Args:
+        model (radvel.model.RVModel): RV model object
+        t (array): array of transit times
+        errt (array): array of transit time uncertainties
+        errvel (array): array of velocity uncertainties
+        suffix (string): suffix to identify this Likelihood object
+           useful when constructing a `CompositeLikelihood` object.
+
+    """
+    def __init__(self, model, t, errt, suffix='', decorr_vars=[],
+                 decorr_vectors=[], **kwargs):
+        self.jit_param = 'jit'+suffix
+        self.extra_params = [self.jit_param]
+        self.gamma_param = 'gamma'+suffix
+
+        if suffix.startswith('_'):
+            self.suffix = suffix[1:]
+        else:
+            self.suffix = suffix
+
+        self.telvec = np.array([self.suffix]*len(t))
+
+        self.decorr_params = []
+        self.decorr_vectors = decorr_vectors
+        if len(decorr_vars) > 0:
+            self.decorr_params += ['c1_'+d+suffix for d in decorr_vars]
+
+        # dummy values passed to Likelihood.__init__() since eclipse
+        # timings are just a time and uncertainty on that time
+        dummy = np.zeros(len(t))
+
+        super(TrLikelihood, self).__init__(
+            model, dummy, t, errt, extra_params=self.extra_params,
+            decorr_params=self.decorr_params,
+            decorr_vectors=self.decorr_vectors
+            )
+
+    def residuals(self):
+        """Residuals
+
+        Data minus model
+        """
+        mod = self.model()
+
+        res = []
+        for i in range(self.model.num_planets):
+            for tr in self.y[i]:
+                diff = tr - mod[i]
+                idx  = np.abs(diff).argmin()
+                res.append(diff[idx])
+        res = np.array(res)
+
+        if len(self.decorr_params) > 0:
+            for parname in self.decorr_params:
+                var = parname.split('_')[1]
+                pars = []
+                for par in self.decorr_params:
+                    if var in par:
+                        pars.append(self.params[par].value)
+                pars.append(0.0)
+                if np.isfinite(self.decorr_vectors[var]).all():
+                    vec = self.decorr_vectors[var] - np.mean(self.decorr_vectors[var])
+                    p = np.poly1d(pars)
+                    res -= p(vec)
+
+        return res
+
+    def errorbars(self):
+        """
+        Return uncertainties with jitter added
+        in quadrature.
+
+        Returns:
+            array: uncertainties
+
+        """
+        return np.sqrt(self.yerr**2 + self.params[self.jit_param].value**2)
+
+    def logprob(self):
+        """
+        Return log-likelihood given the data and model.
+        Priors are not applied here.
+
+        Returns:
+            float: Natural log of likelihood
+        """
+
+        sigma_jit = self.params[self.jit_param].value
+        residuals = self.residuals()
+        loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
+
+        return loglike
 
 class GPLikelihood(RVLikelihood):
     """GP Likelihood
