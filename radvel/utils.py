@@ -136,16 +136,30 @@ Converting 'logjit' to 'jit' for you now.
 
     # initialize likelihood objects for eclipses and transits
     if hasattr(P, 'ecldata'):
+        pgrps = P.ecldata.groupby('pnum').groups 
+        ecl_times = []
+        ecl_errr = []
+        for planet in range(1, P.num_planets + 1):
+            ecl_times.append(P.ecldata.iloc[pgrps[planet]].t)
+            ecl_err.append(P.ecldata.iloc[pgrps[planet]].terr)
+        
         mod = radvel.EclModel(params)
         liketype = radvel.likelihood.EclLikelihood
-        likes['ecl'] = liketype(
-            mod, [P.ecldata.t], [P.ecldata.terr], suffix='_ecl')
+        likes['ecl'] = liketype(mod, ecl_times, ecl_err, suffix='_ecl')
         likes['ecl'].params['jit_ecl'] = iparams['jit_ecl']
+        
+        
     if hasattr(P, 'trdata'):
+        pgrps = P.trdata.groupby('pnum').groups 
+        tr_times = []
+        tr_err = []
+        for planet in range(1, P.num_planets + 1):
+            tr_times.append(P.trdata.iloc[pgrps[planet]].t)
+            tr_err.append(P.trdata.iloc[pgrps[planet]].terr)
+        
         mod = radvel.TrModel(params)
         liketype = radvel.likelihood.TrLikelihood
-        likes['tr'] = liketype(
-            mod, [P.trdata.t], [P.trdata.terr], suffix='_tr')
+        likes['tr'] = liketype(mod, tr_times, tr_err, suffix='_tr')
         likes['tr'].params['jit_tr'] = iparams['jit_tr']
 
     like = radvel.likelihood.CompositeLikelihood(list(likes.values()))

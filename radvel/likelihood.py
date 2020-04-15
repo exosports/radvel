@@ -535,7 +535,17 @@ class TrLikelihood(Likelihood):
 
         sigma_jit = self.params[self.jit_param].value
         residuals = self.residuals()
-        loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
+
+        #Make all errors into one list for easier calculations in loglike jitter
+        err_list = np.empty(residuals.size)
+        for planet in range(self.params.num_planets):
+            np.append(err_list, self.yerr[planet].to_numpy())
+        #err_list = np.array(err_list)
+        #print(err_list)
+        err_list.flatten()
+        #print(err_list)
+        
+        loglike = loglike_jitter(residuals, err_list, sigma_jit)
 
         return loglike
 
