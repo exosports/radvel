@@ -767,3 +767,192 @@ class GPMultipanelPlot(MultipanelPlot):
                 print("RV multi-panel plot saved to %s" % self.saveplot)
 
             return fig, self.ax_list
+
+
+
+class EclTrPlot(object):
+    """
+    Class to handle the creation of eclipse and transit timing plots.
+
+
+    from multipanel class to see what is typically input
+    Args:
+        post (radvel.Posterior): radvel.Posterior object. The model
+            plotted will be generated from `post.params`
+        epoch (int, optional): epoch to subtract off of all time measurements
+        yscale_auto (bool, optional): Use matplotlib auto y-axis
+             scaling (default: False)
+        yscale_sigma (float, optional): Scale y-axis limits for all panels to be +/-
+             yscale_sigma*(RMS of data plotted) if yscale_auto==False
+        phase_nrows (int, optional): number of columns in the phase
+            folded plots. Default is nplanets.
+        phase_ncols (int, optional): number of columns in the phase
+            folded plots. Default is 1.
+        uparams (dict, optional): parameter uncertainties, must
+           contain 'per', 'k', and 'e' keys.
+        telfmts (dict, optional): dictionary of dictionaries mapping
+            instrument suffix to plotting format code. Example:
+                telfmts = {
+                     'hires': dict(fmt='o',label='HIRES'),
+                     'harps-n' dict(fmt='s')
+                }
+        legend (bool, optional): include legend on plot? Default: True.
+        phase_limits (list, optional): two element list specifying 
+            pyplot.xlim bounds for phase-folded plots. Useful for
+            partial orbits.
+        nobin (bool, optional): If True do not show binned data on
+            phase plots. Will default to True if total number of
+            measurements is less then 20.
+        phasetext_size (string, optional): fontsize for text in phase plots.
+            Choice of {'xx-small', 'x-small', 'small', 'medium', 'large', 
+            'x-large', 'xx-large'}. Default: 'x-small'.
+        rv_phase_space (float, optional): amount of space to leave between orbit/residual plot
+            and phase plots.
+        figwidth (float, optional): width of the figures to be produced. 
+            Default: 7.5 (spans a page with 0.5 in margins)
+        fit_linewidth (float, optional): linewidth to use for orbit model lines in phase-folded
+            plots and residuals plots.
+        set_xlim (list of float): limits to use for x-axes of the timeseries and residuals plots, in
+            JD - `epoch`. Ex: [7000., 70005.]
+        text_size (int): set matplotlib.rcParams['font.size'] (default: 9)
+        highlight_last (bool): make the most recent measurement much larger in all panels
+        show_rms (bool): show RMS of the residuals by instrument in the legend
+        legend_kwargs (dict): dict of options to pass to legend (plotted in top panel)
+        status (ConfigParser): (optional) result of radvel.driver.load_status on the .stat status eiotwfile 
+    """
+
+#from multipanel, not sure what stays.
+    def __init__(self, post, saveplot=None, epoch=2450000, yscale_auto=False, yscale_sigma=3.0,
+                 phase_nrows=None, phase_ncols=None, uparams=None, telfmts={}, legend=True,
+                 phase_limits=[], nobin=False, phasetext_size='large', rv_phase_space=0.08,
+                 figwidth=7.5, fit_linewidth=2.0, set_xlim=None, text_size=9, highlight_last=False,
+                 show_rms=False, legend_kwargs=dict(loc='best'), status=None):
+
+        self.post = post
+        self.saveplot = saveplot
+        self.epoch = epoch
+        self.yscale_auto = yscale_auto
+        self.yscale_sigma = yscale_sigma
+        if phase_ncols is None:
+            self.phase_ncols = 1
+        if phase_nrows is None:
+            self.phase_nrows = self.post.model.num_planets
+        self.uparams = uparams
+        self.telfmts = telfmts
+        self.legend = legend
+        self.phase_limits = phase_limits
+        self.nobin = nobin
+        self.phasetext_size = phasetext_size
+        self.figwidth = figwidth
+        self.fit_linewidth = fit_linewidth
+        self.set_xlim = set_xlim
+        self.highlight_last = highlight_last
+        self.show_rms = show_rms
+        self.legend_kwargs = legend_kwargs
+        rcParams['font.size'] = text_size
+
+        if status is not None:
+            self.status = status
+
+        self.ax_ecltr_height = self.figwidth * 0.6
+        self.ax_phase_height = self.ax_ecltr_height /  1.4
+
+        if self.saveplot is not None:
+            resolution = 10000
+        else:
+            resolution = 2000
+
+        if self.epoch == 0:
+            self.epoch = 2450000
+
+        self.ax_list = []
+
+    def plot_ecltr(self):
+       """
+       Make a plot of the Eclipse and Transit data and model
+       """
+       num_planets = self.post.model.num_planets
+       fig, ax_list = pl.subplots(nrows = self.phase_nrows, ncols = self.phase_ncols,
+                                  squeeze = False)
+       
+       prior_list = self.post.priors
+       eclt  = np.empty((num_planets), dtype = np.ndarray)
+       eclte = np.empty((num_planets), dtype = np.ndarray)
+       trt   = np.empty((num_planets), dtype = np.ndarray)
+       trte  = np.empty((num_planets), dtype = np.ndarray)
+       
+       for i in range(num_planets):
+           eclt[i] = np.array([])
+           eclte[i] = np.array([])
+           trt[i] = np.array([])
+           trte[i] = np.array([])
+           
+       for prior in prior_list:
+           if isinstance(prior, radvel.prior.SecondaryEclipsePrior):
+                         p_num  = prior.planet_num - 1 #0 based indexing
+                         eclt[p_num]  = np.append(eclt[p_num],  prior.ts) #add to list of times indexed by planet
+                         eclte[p_num] = np.append(eclte[p_num], prior.ts_err)  #add to list of errors indexed by planet
+           if isinstance(prior, radvel.prior.PrimaryTransitPrior):
+                         p_num  = prior.planet_num - 1 #0 based indexing
+                         trt[p_num]  = np.append(trt[p_num],  prior.tc) #add to list of times indexed by planet
+                         trte[p_num] = np.append(trte[p_num], prior.tc_err) #add to list of errors indexed by planet
+                         
+       for i in range(num_planets):
+           tp  = self.post.params['tp' +str(i+1)].value
+           tc  = self.post.params['tc' +str(i+1)].value 
+           w   = self.post.params['w'  +str(i+1)].value
+           e   = self.post.params['e'  +str(i+1)].value
+           per = self.post.params['per'+str(i+1)].value
+
+           trplot  = t_to_phase(self.post.params, trt[i],  i+1)
+           eclplot = t_to_phase(self.post.params, eclt[i], i+1) - 0.5
+           for j in range(trplot.size):
+               if trplot[j] > 0.5:
+                   trplot[j] -= 1
+
+           ax_list[i,0].errorbar(eclt[i] - self.epoch, eclplot,
+                                 eclte[i]/per, label='Eclipses', fmt='ro', ms=3,
+                                 elinewidth=1)
+           ax_list[i,0].errorbar(trt[i]  - self.epoch, trplot,
+                                 trte[i]/per,  label='Transits', fmt='bo', ms=3,
+                                 elinewidth=1)
+             
+           trplotm  = 0 # no precession
+           
+           bfeclt = radvel.orbit.timeperi_to_timetrans(tp, per, e, w,
+                                                       secondary=True)
+
+           eclplotm = t_to_phase(self.post.params, bfeclt, i+1) - 0.5
+           xlim = ax_list[i,0].get_xlim()
+             
+           ax_list[i,0].hlines(trplotm,  xlim[0], xlim[1], label='Transit Model',
+                               color='black')
+           ax_list[i,0].hlines(eclplotm, xlim[0], xlim[1], label='Eclipse Model',
+                               color='black', linestyle='dashed')
+            
+           if self.legend:
+                ax_list[i,0].legend(numpoints = 1, **self.legend_kwargs)
+                 
+           if self.set_xlim is not None:
+                ax_list[i,0].set_xlim(self.set_xlim)
+           else:
+                ax_list[i,0].set_xlim(xlim)
+ 
+           ax_list[i,0].set_xlabel('Year', fontweight = 'bold')
+           ax_list[i,0].set_ylabel('O-C (phase)'.format(**plot.latex), weight = 'bold')
+       fig.tight_layout()
+       if self.saveplot is not None:
+           pl.savefig(self.saveplot, dpi = 150) 
+           print("EclTr plot saved to %s" % self.saveplot)
+
+       return fig, self.ax_list
+
+
+
+
+
+
+
+
+
+

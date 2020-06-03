@@ -87,6 +87,21 @@ def plots(args):
 You may want to use the '--gp' flag when making these plots.")
                         break
 
+        if ptype == 'et':
+           args.plotkw['uparams'] = post.uparams
+           args.plotkw['status'] = status
+           if 'saveplot' not in args.plotkw:
+               saveto = os.path.join(args.outputdir, conf_base+'-ecltr.pdf')
+           else:
+               saveto = args.plotkw['saveplot']
+               args.plotkw.pop('saveplot')
+           P, _ = radvel.utils.initialize_posterior(config_file)
+           if hasattr(P, 'bjd0'):
+              args.plotkw['epoch'] = P.bjd0
+
+           EclTrPlot = orbit_plots.EclTrPlot(post, saveplot=saveto, **args.plotkw)
+           EclTrPlot.plot_ecltr()
+
         if ptype == 'corner' or ptype == 'auto' or ptype == 'trend':
             assert status.getboolean('mcmc', 'run'), \
                 "Must run MCMC before making corner, auto, or trend plots"

@@ -271,6 +271,56 @@ class SecondaryEclipsePrior(Prior):
 
         return penalty
 
+class PrimaryTransitPrior(Prior):
+    """Primary Transit prior
+
+    Implied prior on eccentricity and omega by specifying measured primary transit time
+
+    Args:
+        planet_num (int): Number of planet with measured primary transit
+        tc (float): primary transit midpoint time.
+            Should be in the same units as the timestamps of your data.
+        tc_err (float): Uncertainty on primary transit time
+    """
+
+    def __repr__(self):
+        msg = ""
+        msg += "primary transit constraint: {} +/- {}\n".format(self.tc, self.tc_err)
+
+        return msg[:-1]
+
+    def __str__(self):
+        msg = "primary transit prior: ${} \\pm {}$ \\\\\\\\\n".format(self.tc, self.tc_err)
+
+        return msg[:-5]
+
+    def __init__(self, planet_num, tc, tc_err):
+
+        self.planet_num = planet_num
+        self.tc = tc
+        self.tc_err = tc_err
+
+    def __call__(self, params):
+        def _getpar(key):
+            return synth_params['{}{}'.format(key, self.planet_num)].value
+
+        synth_params = params.basis.to_synth(params)
+
+        tp = _getpar('tp')
+        per = _getpar('per')
+        ecc = _getpar('e')
+        omega = _getpar('w')
+
+        tc = orbit.timeperi_to_timetrans(tp, per, ecc, omega)
+        tc_phase = utils.t_to_phase(synth_params, tc, self.planet_num)
+
+        pts = utils.t_to_phase(synth_params, self.tc, self.planet_num)
+        epts = self.tc_err / per
+
+        penalty = -0.5 * ((tc_phase - pts) / epts)**2 - 0.5*np.log((epts**2)*2.*np.pi)
+
+        return penalty
+
 
 class Jeffreys(Prior):
     """Jeffrey's prior
