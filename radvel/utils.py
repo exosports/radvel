@@ -98,16 +98,17 @@ Converting 'logjit' to 'jit' for you now.
     mod = radvel.RVModel(params, time_base=P.time_base)
 
     # initialize Likelihood objects for each instrument
-    telgrps = P.data.groupby('tel').groups
+    rvtelgrps = P.data.groupby('tel').groups
+    lctelgrps = P.data.groupby('tel').groups
     likes = {}
-    for inst in P.instnames:
+    for inst in P.rvinstnames:
         assert inst in P.data.groupby('tel').groups.keys(), \
             "No data found for instrument '{}'.\nInstruments found in this dataset: {}".format(inst,
-                                                                                               list(telgrps.keys()))
+                                                                                               list(rvtelgrps.keys()))
         decorr_vectors = {}
         if decorr:
             for d in decorr_vars:
-                decorr_vectors[d] = P.data.iloc[telgrps[inst]][d].values
+                decorr_vectors[d] = P.data.iloc[rvtelgrps[inst]][d].values
 
         try:
             hnames = P.hnames[inst]
@@ -125,42 +126,35 @@ Converting 'logjit' to 'jit' for you now.
             kernel_name = None
             hnames = None
         likes[inst] = liketype(
-            mod, P.data.iloc[telgrps[inst]].time,
-            P.data.iloc[telgrps[inst]].mnvel,
-            P.data.iloc[telgrps[inst]].errvel, hnames=hnames, suffix='_'+inst,
+            mod, P.data.iloc[rvtelgrps[inst]].time,
+            P.data.iloc[rvtelgrps[inst]].mnvel,
+            P.data.iloc[rvtelgrps[inst]].errvel, hnames=hnames, suffix='_'+inst,
             kernel_name=kernel_name, decorr_vars=decorr_vars,
             decorr_vectors=decorr_vectors
         )
         likes[inst].params['gamma_'+inst] = iparams['gamma_'+inst]
         likes[inst].params['jit_'+inst] = iparams['jit_'+inst]
 
-    # initialize likelihood objects for eclipses and transits
-    if hasattr(P, 'ecldata'):
-        pgrps = P.ecldata.groupby('pnum').groups 
-        ecl_times = []
-        ecl_errr = []
-        for planet in range(1, P.num_planets + 1):
-            ecl_times.append(P.ecldata.iloc[pgrps[planet]].t)
-            ecl_err.append(P.ecldata.iloc[pgrps[planet]].terr)
-        
-        mod = radvel.EclModel(params)
-        liketype = radvel.likelihood.EclLikelihood
-        likes['ecl'] = liketype(mod, ecl_times, ecl_err, suffix='_ecl')
-        likes['ecl'].params['jit_ecl'] = iparams['jit_ecl']
-        
-        
-    if hasattr(P, 'trdata'):
-        pgrps = P.trdata.groupby('pnum').groups 
-        tr_times = []
-        tr_err = []
-        for planet in range(1, P.num_planets + 1):
-            tr_times.append(P.trdata.iloc[pgrps[planet]].t)
-            tr_err.append(P.trdata.iloc[pgrps[planet]].terr)
-        
-        mod = radvel.TrModel(params)
-        liketype = radvel.likelihood.TrLikelihood
-        likes['tr'] = liketype(mod, tr_times, tr_err, suffix='_tr')
-        likes['tr'].params['jit_tr'] = iparams['jit_tr']
+    for inst in P.lcinstnames:
+        assert inst in P.lcdata.groupby('tel').groups.keys(), \
+            "No data found for instrument '{}'.\nInstruments found in this dataset: {}".format(inst,
+                                                                                               list(lctelgrps.keys()))
+        decorr_vectors = {}
+        if decorr:
+            for d in decorr_vars:
+                decorr_vectors[d] = P.data.iloc[lctelgrps[inst]][d].values
+
+        liketype = radvel.likelihood.LCLikelihood
+
+        likes[inst] = liketype(
+            mod, P.lcdata.iloc[lctelgrps[inst]].time,
+            P.lcdata.iloc[lctelgrps[inst]].flux,
+            P.lcdata.iloc[lctelgrps[inst]].errflux, hnames=hnames,
+            suffix='_'+inst, kernel_name=None, decorr_vars=decorr_vars,
+            decorr_vectors=decorr_vectors
+        )
+        likes[inst].params['gamma_'+inst] = iparams['gamma_'+inst]
+        likes[inst].params['jit_'+inst] = iparams['jit_'+inst]        
 
     like = radvel.likelihood.CompositeLikelihood(list(likes.values()))
 
