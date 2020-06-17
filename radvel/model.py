@@ -2,6 +2,7 @@ import numpy as np
 from collections import OrderedDict
 
 from radvel import kepler
+from radvel import ecltr
 from radvel.basis import Basis
 
 
