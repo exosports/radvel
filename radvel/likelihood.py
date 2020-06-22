@@ -389,7 +389,7 @@ class LCLikelihood(Likelihood):
         mod = self.model(self.x)
         
         if self.params[self.gamma_param].linear and not self.params[self.gamma_param].vary:
-            ztil = np.sum((self.y - mod)/(self.yerr**2 + self.params[self.jit_param].value**2)) / 
+            ztil = np.sum((self.y - mod)/(self.yerr**2 + self.params[self.jit_param].value**2)) / \
                    np.sum(1/(self.yerr**2 + self.params[self.jit_param].value**2))
             if np.isnan(ztil):
                  ztil = 0.0
