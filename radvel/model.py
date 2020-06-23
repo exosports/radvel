@@ -231,54 +231,25 @@ class GeneralRVModel(object):
         vel += self.params['curv'].value * (t - self.time_base)**2
         return vel
 
-class GeneralTrModel(object):
-    def __init__(self,params,forward_model,time_base=0):
+class GeneralLCModel(object):
+    def __init__(self, params, t, forward_model):
         self.params = params
-        self.time_base = time_base
+        self.t = t
         self._forward_model = forward_model
         assert callable(forward_model)
-        if 'ti' not in params.keys():
-            self.params['ti'] = Parameter(value=0.)
-        if 'tf' not in params.keys():
-            self.params['tf'] = Parameter(value=2460000.)
 
     def __call__(self,*args,**kwargs):
-        """Compute transit timings.
+        """Compute LightCurve timings.
 
         Args:
             planet_num (int [optional]): calculate the transit model 
                 for a single planet within a multi-planet system
 
         Returns:
-            tr (array of floats): All possible transit times.
+            lc (array of floats): All possible lc times.
         """
-        tr = self._forward_model(self.params,*args,**kwargs)
-        return tr
-
-class GeneralEclModel(object):
-    def __init__(self,params,forward_model,time_base=0):
-        self.params = params
-        self.time_base = time_base
-        self._forward_model = forward_model
-        assert callable(forward_model)
-        if 'ti' not in params.keys():
-            self.params['ti'] = Parameter(value=0.)
-        if 'tf' not in params.keys():
-            self.params['tf'] = Parameter(value=2460000.)
-            
-    def __call__(self,*args,**kwargs):
-        """Compute eclipse timings.
-
-        Args:
-            planet_num (int [optional]): calculate the transit model 
-                for a single planet within a multi-planet system
-
-        Returns:
-            ecl (array of floats): All possible eclipse times.
-        """
-        ecl = self._forward_model(self.params,*args,**kwargs)
-        return ecl
-    
+        lc = self._forward_model(self.t, self.params,*args,**kwargs)
+        return lc
 
 def _standard_rv_calc(t,params,planet_num=None):
         vel = np.zeros(len(t))
@@ -298,16 +269,15 @@ def _standard_rv_calc(t,params,planet_num=None):
             vel += kepler.rv_drive(t, orbel_synth)
         return vel
 
-def _standard_tr_calc(params,planet_num=None):
-        ti = params['ti'].value
-        tf = params['tf'].value
+def _standard_lc_calc(t, params, planet_num=None):
         params_synth = params.basis.to_synth(params)
         if planet_num is None:
             planets = range(1, params.num_planets+1)
         else:
             planets = [planet_num]
 
-        tr = []
+        lc = []
+
         for num_planet in planets:
             per = params_synth['per{}'.format(num_planet)].value
             tp = params_synth['tp{}'.format(num_planet)].value
@@ -315,31 +285,9 @@ def _standard_tr_calc(params,planet_num=None):
             w = params_synth['w{}'.format(num_planet)].value
             k = params_synth['k{}'.format(num_planet)].value
             orbel_synth = np.array([per, tp, e, w, k])        
-            tr.append(kepler.transits(orbel_synth, ti, tf))
+            lc.append(radvel.ecltr.mandeltr(t, orbel_synth, 3, 10, .1, np.pi / 2, True) * radvel.ecltr.mandelecl(t, orbel_synth, 3, 10, .1, np.pi / 2, .01, True))
 
-        return tr
-            
-
-def _standard_ecl_calc(params,planet_num=None):
-        ti = params['ti'].value
-        tf = params['tf'].value    
-        params_synth = params.basis.to_synth(params)
-        if planet_num is None:
-            planets = range(1, params.num_planets+1)
-        else:
-            planets = [planet_num]
-
-        ecl = []
-        for num_planet in planets:
-            per = params_synth['per{}'.format(num_planet)].value
-            tp = params_synth['tp{}'.format(num_planet)].value
-            e = params_synth['e{}'.format(num_planet)].value
-            w = params_synth['w{}'.format(num_planet)].value
-            k = params_synth['k{}'.format(num_planet)].value
-            orbel_synth = np.array([per, tp, e, w, k])        
-            ecl.append(kepler.eclipses(orbel_synth, ti, tf))
-
-        return ecl
+        return lc
     
 class RVModel(GeneralRVModel):
     """
@@ -353,18 +301,10 @@ class RVModel(GeneralRVModel):
         super(RVModel,self).__init__(params,_standard_rv_calc,time_base)
         self.num_planets=params.num_planets
 
-class TrModel(GeneralTrModel):
+class LCModel(GeneralLCModel):
     """
-    Generic Transit Model
+    Generic Light Curve Model 
     """
-    def __init__(self, params):
-        super(TrModel,self).__init__(params,_standard_tr_calc)
-        self.num_planets=params.num_planets
-
-class EclModel(GeneralEclModel):
-    """
-    Generic Eclipse Model
-    """
-    def __init__(self, params):
-        super(EclModel,self).__init__(params,_standard_ecl_calc)
+    def __init__(self, params, t):
+        super(LCModel,self).__init__(params, t, forward_model=_standard_lc_calc)
         self.num_planets=params.num_planets
