@@ -2,6 +2,7 @@ import numpy as np
 from collections import OrderedDict
 
 from radvel import kepler
+from radvel import orbit
 from radvel import ecltr
 from radvel.basis import Basis
 
@@ -280,12 +281,17 @@ def _standard_lc_calc(t, params, planet_num=None):
 
         for num_planet in planets:
             per = params_synth['per{}'.format(num_planet)].value
-            tp = params_synth['tp{}'.format(num_planet)].value
             e = params_synth['e{}'.format(num_planet)].value
             w = params_synth['w{}'.format(num_planet)].value
             k = params_synth['k{}'.format(num_planet)].value
+            flux = params_synth['flux{}'.format(num_planet)].value
+            ars  = params_synth['ars{}'.format(num_planet)].value
+            rprs = params_synth['rprs{}'.format(num_planet)].value
+            inc  =  params_synth['inc{}'.format(num_planet)].value
+            frat = params_synth['frat{}'.format(num_planet)].value
+            tp   = orbit.timetrans_to_timeperi(params_synth['tc{}'.format(num_planet)].value, per, e, w)
             orbel_synth = np.array([per, tp, e, w, k])        
-            lc.append(radvel.ecltr.mandeltr(t, orbel_synth, 3, 10, .1, np.pi / 2, True) * radvel.ecltr.mandelecl(t, orbel_synth, 3, 10, .1, np.pi / 2, .01, True))
+            lc.append(ecltr.mandeltr(t, orbel_synth, flux, ars, rprs, inc) * ecltr.mandelecl(t, orbel_synth, flux, ars, rprs, inc, frat))
 
         return lc
     
