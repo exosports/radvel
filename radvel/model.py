@@ -239,7 +239,7 @@ class GeneralLCModel(object):
         self._forward_model = forward_model
         assert callable(forward_model)
 
-    def __call__(self,*args,**kwargs):
+    def __call__(self,t,*args,**kwargs):
         """Compute LightCurve timings.
 
         Args:
