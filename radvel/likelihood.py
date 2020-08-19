@@ -397,7 +397,7 @@ class LCLikelihood(Likelihood):
 
         res = self.y - self.params[self.gamma_param].value - mod
 
-        if len(selfdecorr_params) > 0:
+        if len(self.decorr_params) > 0:
             for parname in self.decorr_params:
                 var = parname.split('_')[1]
                 pars = []
