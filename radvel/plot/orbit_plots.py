@@ -105,13 +105,32 @@ class MultipanelPlot(object):
         synthparams = self.post.params.basis.to_synth(self.post.params)
         self.post.params.update(synthparams)
 
-        self.model = self.post.likelihood.model
-        self.rvtimes = self.post.likelihood.x
-        self.rverr = self.post.likelihood.errorbars()
+        # empty list to store rv objects from like_list. 
+        self.rv_list = []
+
+        # loop through objects in like_list, objects of RVModel will be appended to the rv_list.
+        for i in range(len(self.like_list)):
+            if isinstance(self.like_list[i].model, radvel.RVModel):
+                self.rv_list.append(self.like_list[i])
+
+        # copy over first element of rv_list.x to rvtimes, as well as its telvec.
+        self.rvtimes = self.rv_list[0].x
+        self.x = self.rv_list[0].telvec
+
+        # loop through rv_list and append them to rvtimes. Do the same for televec.
+        for i in range(1, len(self.rv_list)):
+            self.rvtimes = np.append(self.rvtimes, self.rv_list[i].x)
+            self.x = np.append(self.x, self.rv_list[i].telvec)
+                 
+        self.post.likelihood.like_list = self.rv_list # set like_list to rv_list.
+        self.post.likelihood.telvec = self.x          # set telvec to self.x
+
+        self.model = self.post.likelihood.model       
         self.num_planets = self.model.num_planets
-
+        
         self.rawresid = self.post.likelihood.residuals()
-
+        self.rverr = self.post.likelihood.errorbars()
+    
         self.resid = (
             self.rawresid + self.post.params['dvdt'].value*(self.rvtimes-self.model.time_base)
             + self.post.params['curv'].value*(self.rvtimes-self.model.time_base)**2
@@ -173,7 +192,7 @@ class MultipanelPlot(object):
 
         if self.show_rms:
             rms_values = dict()
-            for like in self.like_list:
+            for like in self.rv_list:
                 inst = like.suffix
                 rms = np.std(like.residuals())
                 rms_values[inst] = rms
@@ -185,9 +204,9 @@ class MultipanelPlot(object):
 
         # plot data
         vels = self.rawresid+self.rvmod
+                               
         plot.mtelplot(
-            # data = residuals + model
-            self.plttimes, vels, self.rverr, self.post.likelihood.telvec, ax, telfmts=self.telfmts,
+            self.plttimes, vels, self.rverr, self.x, ax, telfmts=self.telfmts,
             rms_values=rms_values
         )
 
@@ -615,11 +634,17 @@ class GPMultipanelPlot(MultipanelPlot):
         for like in self.like_list:
             ci = self.plot_gp_like(like, orbit_model4data, ci)
 
+        x  = self.rv_list[0].telvec
+        y  = np.append(x, self.rv_list[1].telvec)
+        z  = np.append(y, self.rv_list[2].telvec)
+
+        print("yo")
+
         # plot data
         plot.mtelplot(
             # data = residuals + model
             self.plttimes, self.rawresid+orbit_model4data, self.rverr,
-            self.post.likelihood.telvec, ax, telfmts=self.telfmts
+            z, ax, telfmts=self.telfmts
         )
 
         if self.set_xlim is not None:

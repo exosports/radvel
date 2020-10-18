@@ -18,7 +18,10 @@ def get_property(prop, project):
     return result.group(1)
 
 
-extensions = [Extension("radvel._kepler", ["src/_kepler.pyx"],)]
+ext_package = "radvel"
+extensions  = [Extension("_kepler", ["src/_kepler.pyx"]),
+               Extension("_ecltr",  ["src/_ecltr.pyx"])]
+
 
 reqs = []
 for line in open('requirements.txt', 'r').readlines():
@@ -31,6 +34,7 @@ setup(
     author="BJ Fulton, Erik Petigura, Sarah Blunt, Evan Sinukoff",
     packages=find_packages(),
     setup_requires=['numpy', 'cython'],
+    ext_package=ext_package,
     ext_modules=extensions,
     cmdclass={'build_ext': build_ext},
     data_files=[
@@ -39,7 +43,10 @@ setup(
             [
                 'example_data/164922_fixed.txt', 
                 'example_data/epic203771098.csv',
-                'example_data/k2-131.txt'
+                'example_data/k2-131.txt',
+                'example_data/gj436-rv.txt',
+                'example_data/gj436-ecl.txt',
+                'example_data/gj436-tr.txt'
             ]
         )
     ],

@@ -11,7 +11,32 @@ except ImportError:
 equation solver. Falling back to the slower NumPy implementation.")
     cext = False
 
+def transits(orbel, ti, tf):
+    per, tp, e, om, k = orbel
+    
+    tc = radvel.orbit.timeperi_to_timetrans(tp, per, e, om)
+    
+    ni = np.int((ti-tc)/per)
+    nf = np.int((tf-tc)/per)
+    
+    n = np.arange(ni, nf)
+    
+    tr = tc + per*n
+    return tr
 
+def eclipses(orbel, ti, tf):
+    per, tp, e, om, k = orbel
+    te = radvel.orbit.timeperi_to_timetrans(tp, per, e, om, secondary=True)
+
+    ni = np.int((ti-te)/per)
+    nf = np.int((tf-te)/per)
+    
+    n = np.arange(ni, nf)
+    
+    ecl = te + per*n
+    
+    return ecl
+    
 def rv_drive(t, orbel, use_c_kepler_solver=cext):
     """RV Drive
     Args:

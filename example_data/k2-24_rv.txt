@@ -1,0 +1,11 @@
+time mnvel errvel tel svalue
+2364.819580 0.85 1.68 hires /nodata
+2364.825101 1.72 1.52 hires /nodata
+2364.830703 9.99 1.59 hires /nodata
+2366.827579 -3.90 1.62 hires /nodata
+2367.852646 5.50 1.65 hires /nodata
+2373.888150 -3.77 1.78 hires /nodata
+2374.852412 -5.65 1.97 hires /nodata
+2376.863820 -6.09 1.79 hires /nodata
+2377.866073 -2.40 1.76 hires /nodata
+2378.834011 -1.33 1.60 hires /nodata

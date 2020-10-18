@@ -190,7 +190,8 @@ class CompositeLikelihood(Likelihood):
             like = like_list[i]
 
             self.x = np.append(self.x, like.x)
-            self.y = np.append(self.y, like.y - like.params[like.gamma_param].value)
+            self.y = np.append(self.y, like.y -
+                               like.params[like.gamma_param].value)
             self.yerr = np.append(self.yerr, like.yerr)
             self.telvec = np.append(self.telvec, like.telvec)
             self.extra_params = np.append(self.extra_params, like.extra_params)
@@ -202,8 +203,8 @@ class CompositeLikelihood(Likelihood):
             except AttributeError:
                 self.uparams = None
 
-            assert like.model is like0.model, \
-                "Likelihoods must use the same model"
+            #assert like.model is like0.model, \
+            #    "Likelihoods must use the same model"
 
             for k in like.params:
                 if k in params:
@@ -343,6 +344,102 @@ class RVLikelihood(Likelihood):
 
         return loglike
 
+class LCLikelihood(Likelihood):
+    """LC Likelihood
+
+    The Likelihood object for a light curve dataset
+
+    Args:
+        model (radvel.model.LCModel): RV model object
+        t (array): time array
+        flux (array): array of fluxes
+        errflux (array): array of flux uncertainties
+        suffix (string): suffix to identify this Likelihood object
+           useful when constructing a `CompositeLikelihood` object.
+
+    """
+    def __init__(self, model, t, flux, errflux, suffix='', decorr_vars=[],
+                 decorr_vectors=[], **kwargs):
+        self.gamma_param = 'gamma'+suffix
+        self.jit_param = 'jit'+suffix
+        self.extra_params = [self.gamma_param, self.jit_param]
+
+        if suffix.startswith('_'):
+            self.suffix = suffix[1:]
+        else:
+            self.suffix = suffix
+
+        self.telvec = np.array([self.suffix]*len(t))
+
+        self.decorr_params = []
+        self.decorr_vectors = decorr_vectors
+        if len(decorr_vars) > 0:
+            self.decorr_params += ['c1_'+d+suffix for d in decorr_vars]
+
+        super(LCLikelihood, self).__init__(
+            model, t, flux, errflux, extra_params=self.extra_params,
+            decorr_params=self.decorr_params, decorr_vectors=self.decorr_vectors
+            )
+
+    def residuals(self):
+        """Residuals
+
+        Data minus model
+        """
+        mod = self.model(self.x)
+        
+        if self.params[self.gamma_param].linear and not self.params[self.gamma_param].vary:
+            ztil = np.sum((self.y - mod)/(self.yerr**2 + self.params[self.jit_param].value**2)) / \
+                   np.sum(1/(self.yerr**2 + self.params[self.jit_param].value**2))
+            if np.isnan(ztil):
+                 ztil = 0.0
+            self.params[self.gamma_param].value = ztil
+
+        res = self.y - self.params[self.gamma_param].value - mod
+
+        if len(self.decorr_params) > 0:
+            for parname in self.decorr_params:
+                var = parname.split('_')[1]
+                pars = []
+                for par in self.decorr_params:
+                    if var in par:
+                        pars.append(self.params[par].value)
+                pars.append(0.0)
+                if np.isfinite(self.decorr_vectors[var]).all():
+                    vec = self.decorr_vectors[var] - np.mean(self.decorr_vectors[var])
+                    p = np.poly1d(pars)
+                    res -= p(vec)
+        return res
+
+    def errorbars(self):
+        """
+        Return uncertainties with jitter added
+        in quadrature.
+
+        Returns:
+            array: uncertainties
+
+        """
+        return np.sqrt(self.yerr**2 + self.params[self.jit_param].value**2)
+
+    def logprob(self):
+        """
+        Return log-likelihood given the data and model.
+        Priors are not applied here.
+
+        Returns:
+            float: Natural log of likelihood
+        """
+
+        sigma_jit = self.params[self.jit_param].value
+        residuals = self.residuals()
+        loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
+
+        if self.params[self.gamma_param].linear and not self.params[self.gamma_param].vary:
+            sigz = 1/np.sum(1 / (self.yerr**2 + sigma_jit**2))
+            loglike += np.log(np.sqrt(2 * np.pi * sigz))
+
+        return loglike
 
 class GPLikelihood(RVLikelihood):
     """GP Likelihood

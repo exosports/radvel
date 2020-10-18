@@ -2,6 +2,8 @@ import numpy as np
 from collections import OrderedDict
 
 from radvel import kepler
+from radvel import orbit
+from radvel import ecltr
 from radvel.basis import Basis
 
 
@@ -230,6 +232,26 @@ class GeneralRVModel(object):
         vel += self.params['curv'].value * (t - self.time_base)**2
         return vel
 
+class GeneralLCModel(object):
+    def __init__(self, params, t, forward_model):
+        self.params = params
+        self.t = t
+        self._forward_model = forward_model
+        assert callable(forward_model)
+
+    def __call__(self,t,*args,**kwargs):
+        """Compute LightCurve timings.
+
+        Args:
+            planet_num (int [optional]): calculate the transit model 
+                for a single planet within a multi-planet system
+
+        Returns:
+            lc (array of floats): All possible lc times.
+        """
+        lc = self._forward_model(self.t, self.params,*args,**kwargs)
+        return lc
+
 def _standard_rv_calc(t,params,planet_num=None):
         vel = np.zeros(len(t))
         params_synth = params.basis.to_synth(params)
@@ -248,6 +270,31 @@ def _standard_rv_calc(t,params,planet_num=None):
             vel += kepler.rv_drive(t, orbel_synth)
         return vel
 
+def _standard_lc_calc(t, params, planet_num=None):
+        params_synth = params.basis.to_synth(params)
+        if planet_num is None:
+            planets = range(1, params.num_planets+1)
+        else:
+            planets = [planet_num]
+
+        lc = []
+
+        for num_planet in planets:
+            per = params_synth['per{}'.format(num_planet)].value
+            e = params_synth['e{}'.format(num_planet)].value
+            w = params_synth['w{}'.format(num_planet)].value
+            k = params_synth['k{}'.format(num_planet)].value
+            flux = params_synth['flux{}'.format(num_planet)].value
+            ars  = params_synth['ars{}'.format(num_planet)].value
+            rprs = params_synth['rprs{}'.format(num_planet)].value
+            inc  =  params_synth['inc{}'.format(num_planet)].value
+            frat = params_synth['frat{}'.format(num_planet)].value
+            tp   = orbit.timetrans_to_timeperi(params_synth['tc{}'.format(num_planet)].value, per, e, w)
+            orbel_synth = np.array([per, tp, e, w, k])        
+            lc.append(ecltr.mandeltr(t, orbel_synth, flux, ars, rprs, inc) * ecltr.mandelecl(t, orbel_synth, flux, ars, rprs, inc, frat))
+
+        return lc
+    
 class RVModel(GeneralRVModel):
     """
     Generic RV Model
@@ -258,4 +305,12 @@ class RVModel(GeneralRVModel):
     """
     def __init__(self,params, time_base=0):
         super(RVModel,self).__init__(params,_standard_rv_calc,time_base)
+        self.num_planets=params.num_planets
+
+class LCModel(GeneralLCModel):
+    """
+    Generic Light Curve Model 
+    """
+    def __init__(self, params, t):
+        super(LCModel,self).__init__(params, t, forward_model=_standard_lc_calc)
         self.num_planets=params.num_planets
