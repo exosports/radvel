@@ -69,12 +69,50 @@ trdata = pd.read_csv(os.path.join(radvel.DATADIR,'gj436-tr.txt'), sep=' ')
 # Ecl data
 ecldata = pd.read_csv(os.path.join(radvel.DATADIR,'gj436-ecl.txt'), sep=' ')
 
+
 # Define prior shapes and widths here.
 priors = [
     radvel.prior.EccentricityPrior( nplanets ),           # Keeps eccentricity < 1
     radvel.prior.HardBounds('per1', 2.6, 2.7),
-    radvel.prior.HardBounds('logk1', 2.5, 3.0)
+    radvel.prior.HardBounds('logk1', 2.5, 3.0),
+
+    radvel.prior.PrimaryTransitPrior(1, 2458362.95999, 0.00010),
+    radvel.prior.PrimaryTransitPrior(1, 2454661.50289, 0.00013),
+    radvel.prior.PrimaryTransitPrior(1, 2458886.4506827453, 0.00075),
+    radvel.prior.PrimaryTransitPrior(1, 2458878.5281523624, 0.00073),
+    radvel.prior.PrimaryTransitPrior(1, 2458870.5935419793, 0.00089),
+    radvel.prior.PrimaryTransitPrior(1, 2458619.419770181, 0.00085),
+    radvel.prior.PrimaryTransitPrior(1, 2458582.403438505, 0.00072),
+    radvel.prior.PrimaryTransitPrior(1, 2458566.540817792, 0.0008),
+    radvel.prior.PrimaryTransitPrior(1, 2458566.5363777913, 0.00086),
+    radvel.prior.PrimaryTransitPrior(1, 2458545.3976668473, 0.0009),
+
+    radvel.prior.SecondaryEclipsePrior(1, 2454496.48567, 0.00290),
+    radvel.prior.SecondaryEclipsePrior(1, 2456868.07879, 0.00125),
+    radvel.prior.SecondaryEclipsePrior(1, 2454499.12522, 0.00674),
+    radvel.prior.SecondaryEclipsePrior(1, 2455585.74037, 0.02775),
+    radvel.prior.SecondaryEclipsePrior(1, 2456881.30441, 0.00868),
+    radvel.prior.SecondaryEclipsePrior(1, 2457079.57260, 0.00831),
+    radvel.prior.SecondaryEclipsePrior(1, 2454501.79592, 0.01620),
+    radvel.prior.SecondaryEclipsePrior(1, 2454282.33453, 0.00179),
+    radvel.prior.SecondaryEclipsePrior(1, 2454628.68412, 0.00348),
+    radvel.prior.SecondaryEclipsePrior(1, 2454631.32678, 0.00323),
+    radvel.prior.SecondaryEclipsePrior(1, 2454633.97148, 0.00431),
+    radvel.prior.SecondaryEclipsePrior(1, 2454636.61829, 0.00840),
+    radvel.prior.SecondaryEclipsePrior(1, 2454858.70792, 0.00943),
+    radvel.prior.SecondaryEclipsePrior(1, 2454861.34733, 0.00495),
+    radvel.prior.SecondaryEclipsePrior(1, 2454863.99421, 0.00228),
+    radvel.prior.SecondaryEclipsePrior(1, 2454866.62937, 0.00724),
+    radvel.prior.SecondaryEclipsePrior(1, 2454477.98123, 0.00149),
+    radvel.prior.SecondaryEclipsePrior(1, 2454470.05344, 0.01017),
+    radvel.prior.SecondaryEclipsePrior(1, 2458361.86068, 0.00975),
+    radvel.prior.SecondaryEclipsePrior(1, 2458364.53288, 0.00371),
+    radvel.prior.SecondaryEclipsePrior(1, 2454660.41980, 0.00174), 
+    radvel.prior.SecondaryEclipsePrior(1, 2454663.05453, 0.00487)
+ 
 ]
+
+
 
 
 # optional argument that can contain stellar mass in solar units (mstar) and

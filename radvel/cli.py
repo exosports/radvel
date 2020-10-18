@@ -48,7 +48,7 @@ def main():
     psr_plot = subpsr.add_parser('plot', parents=[psr_parent],)
     psr_plot.add_argument('-t', '--type',
                           type=str, nargs='+',
-                          choices=['rv', 'auto', 'corner', 'trend', 'derived'],
+                          choices=['rv', 'et', 'auto', 'corner', 'trend', 'derived'],
                           help="type of plot(s) to generate"
                           )
     psr_plot.add_argument('--plotkw', dest='plotkw', action='store', default="{}", type=eval,
